@@ -1,3 +1,10 @@
+# Environment variables
+.env
+.env.*
+!.env.example
+backend/.env
+frontend/.env
+
 # Local database
 *.db
 *.sqlite
@@ -5,12 +12,6 @@
 
 # Test files
 backend/test.jpg
-
-
-# Environment variables
-.env
-.env.*
-!.env.example
 
 # Python
 __pycache__/
