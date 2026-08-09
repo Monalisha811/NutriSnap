@@ -3,7 +3,8 @@ import json
 import os
 
 from PIL import Image
-from transformers import pipeline
+from google import genai
+from google.genai import types
 
 
 # ==========================================
@@ -31,43 +32,102 @@ FOOD_NAMES = [
 
 
 # ==========================================
-# LOAD ZERO-SHOT MODEL
+# GEMINI CLIENT
 # ==========================================
 
-classifier = None
+api_key = os.getenv("GEMINI_API_KEY")
 
+if not api_key:
+    raise RuntimeError(
+        "GEMINI_API_KEY is not set in the environment."
+    )
 
-def get_classifier():
-    global classifier
+client = genai.Client(api_key=api_key)
 
-    if classifier is None:
-        classifier = pipeline(
-            "zero-shot-image-classification",
-            model="openai/clip-vit-base-patch32"
-        )
-
-    return classifier
 
 # ==========================================
-# FOOD DETECTION
+# FOOD DETECTION USING GEMINI
 # ==========================================
 
 def detect_food(image_bytes):
 
+    # Validate image
     image = Image.open(
         io.BytesIO(image_bytes)
     ).convert("RGB")
 
-    # Give CLIP the food names from OUR database
-    predictions = get_classifier()(
-        image,
-        candidate_labels=FOOD_NAMES
+    # Determine MIME type
+    image_format = image.format
+
+    if image_format == "PNG":
+        mime_type = "image/png"
+    elif image_format == "WEBP":
+        mime_type = "image/webp"
+    else:
+        mime_type = "image/jpeg"
+
+    # Give Gemini ONLY the food names that exist
+    # in our nutrition database.
+    food_list = ", ".join(FOOD_NAMES)
+
+    prompt = f"""
+You are the food recognition system for NutriSnap.
+
+Analyze the provided food image.
+
+Identify the single most likely food item from the following
+allowed food names:
+
+{food_list}
+
+IMPORTANT:
+- You MUST choose a food name from the allowed list.
+- Do not invent a new food name.
+- Return "Unknown" only if none of the allowed food names
+  reasonably match the image.
+- Give a confidence score between 0 and 1.
+- Return ONLY valid JSON.
+- Do not include markdown or explanations.
+
+Required JSON format:
+
+{{
+    "food_name": "exact food name from the list",
+    "confidence": 0.95
+}}
+"""
+
+    response = client.models.generate_content(
+        model="gemini-3.5-flash",
+        contents=[
+            prompt,
+            types.Part.from_bytes(
+                data=image_bytes,
+                mime_type=mime_type
+            )
+        ]
     )
 
-    best = predictions[0]
+    # ==========================================
+    # PARSE GEMINI RESPONSE
+    # ==========================================
 
-    food_name = best["label"]
-    confidence = float(best["score"])
+    response_text = response.text.strip()
+
+    # Remove markdown code fences if Gemini adds them
+    if response_text.startswith("```"):
+        response_text = response_text.replace(
+            "```json", ""
+        ).replace(
+            "```", ""
+        ).strip()
+
+    result = json.loads(response_text)
+
+    food_name = result.get("food_name", "Unknown")
+    confidence = float(
+        result.get("confidence", 0)
+    )
 
     # ==========================================
     # VERIFY FOOD EXISTS IN OUR DATABASE
@@ -84,12 +144,20 @@ def detect_food(image_bytes):
             matched_food = food
             break
 
+    # ==========================================
+    # FOOD NOT FOUND
+    # ==========================================
+
     if matched_food is None:
 
         return {
             "food_name": "Unknown",
             "confidence": 0.0
         }
+
+    # ==========================================
+    # RETURN DETECTION
+    # ==========================================
 
     return {
         "food_name": matched_food["Food_Item"],

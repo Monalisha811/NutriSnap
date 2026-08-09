@@ -39,8 +39,6 @@ def create_app():
         return {'status': 'ok', 'service': 'NutriSnap API'}
 
     return app
-
-app = create_app()
-
 if __name__ == '__main__':
+    app = create_app()
     app.run(debug=True)
