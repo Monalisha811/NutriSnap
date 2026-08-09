@@ -14,7 +14,6 @@ meals_bp = Blueprint("meals", __name__)
 
 @meals_bp.post("/analyze")
 def analyze():
-
     image = request.files.get("image")
 
     if not image:
