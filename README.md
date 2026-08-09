@@ -2,6 +2,8 @@
 
 ### AI-Powered Food Recognition & Nutrition Estimation
 
+🌐 **Live Demo:** https://nutri-snap-kfmm.vercel.app/
+
 NutriSnap is an AI-powered web application that identifies food from images and provides an estimated nutritional breakdown.
 
 The application uses **Google Gemini** for food recognition and matches the detected food with NutriSnap's nutrition database. Users can also provide details such as portion size, food source, cooking method, and cooking oil to make the nutrition estimate more relevant.
