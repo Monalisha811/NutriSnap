@@ -34,11 +34,19 @@ FOOD_NAMES = [
 # LOAD ZERO-SHOT MODEL
 # ==========================================
 
-classifier = pipeline(
-    "zero-shot-image-classification",
-    model="openai/clip-vit-base-patch32"
-)
+classifier = None
 
+
+def get_classifier():
+    global classifier
+
+    if classifier is None:
+        classifier = pipeline(
+            "zero-shot-image-classification",
+            model="openai/clip-vit-base-patch32"
+        )
+
+    return classifier
 
 # ==========================================
 # FOOD DETECTION
@@ -51,7 +59,7 @@ def detect_food(image_bytes):
     ).convert("RGB")
 
     # Give CLIP the food names from OUR database
-    predictions = classifier(
+    predictions = get_classifier()(
         image,
         candidate_labels=FOOD_NAMES
     )
